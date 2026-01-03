@@ -1,15 +1,6 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # Machine Learning SCF Energy Prediction (MSEP) Training Script  
-# 
-# ## Step 1: QM9 data feature engineering 
-# 
-# ## Step 2: Prediction Training 
-# 
-
-# In[ ]:
-
+# =============================================================================
+# MSEP Training Script
+# =============================================================================
 
 import io
 import sys
