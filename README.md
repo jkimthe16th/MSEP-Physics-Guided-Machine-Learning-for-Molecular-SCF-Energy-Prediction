@@ -236,7 +236,7 @@ If you use this code, please cite:
 ```
 @software{msep2024,
   title={MSEP: Physics-Guided Machine Learning for Molecular SCF Energy Prediction},
-  year={2024},
+  year={2025},
   url={https://github.com/jkimthe16th/MSEP}
 }
 ```
