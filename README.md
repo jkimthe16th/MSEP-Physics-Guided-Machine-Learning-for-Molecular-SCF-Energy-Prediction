@@ -1,6 +1,42 @@
 # MSEP: Machine Learning SCF Energy Prediction
 A physics-informed machine learning pipeline for predicting molecular Self-Consistent Field (SCF) energies at the **B3LYP/6-31G(2df,p)** level of theory. Predictions complete in under 1 second, enabling high-throughput screening of molecular libraries.
 
+---
+
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Physics Components](#physics-components)
+  - [Atomic Baseline Energies](#1-atomic-baseline-energies)
+  - [Electronic Structure Features](#2-electronic-structure-features)
+  - [Heteroatom Environment Classification](#3-heteroatom-environment-classification)
+  - [Electron Correlation Proxies](#4-electron-correlation-proxies)
+  - [Multi-Component ZPVE Model](#5-multi-component-zpve-model)
+  - [Size-Dependent Corrections](#6-size-dependent-corrections)
+  - [Solvation Model](#7-solvation-model-born-like)
+  - [Functional Group Corrections](#8-functional-group-corrections)
+- [Files](#files)
+- [Performance](#performance)
+- [Installation](#installation)
+  - [Requirements](#requirements)
+  - [Setup](#setup)
+- [Usage](#usage)
+  - [Command Line](#command-line)
+  - [Python/Jupyter](#pythonjupyter-recommended)
+- [Input File Format](#input-file-format)
+  - [Example File Format](#example-file-format)
+  - [Supported Solvents](#supported-solvents)
+- [Supported Elements](#supported-elements)
+- [For Developers](#for-developers)
+  - [Retraining the Model](#retraining-the-model)
+  - [Architecture](#architecture)
+- [Limitations](#limitations)
+- [Citation](#citation)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
+
 ### Key Features
 
 - **Fast predictions**: < 1 second per molecule (~ 57 mols/sec)
