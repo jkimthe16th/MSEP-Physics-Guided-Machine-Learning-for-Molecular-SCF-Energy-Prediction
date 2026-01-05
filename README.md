@@ -1,21 +1,101 @@
 # MSEP: Machine Learning SCF Energy Prediction
-A physics-informed machine learning pipeline for predicting molecular Self-Consistent Field (SCF) energies at the B3LYP/6-31G(2df,p) level of theory. Predictions complete in under 1 second, enabling high-throughput screening of molecular libraries.
+A physics-informed machine learning pipeline for predicting molecular Self-Consistent Field (SCF) energies at the **B3LYP/6-31G(2df,p)** level of theory. Predictions complete in under 1 second, enabling high-throughput screening of molecular libraries.
 
 ### Key Features
 
-- **Fast predictions**: < 1 second per molecule
+- **Fast predictions**: < 1 second per molecule (~ 57 mols/sec)
 - **Physics-informed**: Embeds physical laws directly into the model architecture
-- **Generalizable**: Trained on small molecules (≤9 heavy atoms), extends to larger drug-like molecules
+- **Generalizable**: Trained on small molecules (≤9 heavy atoms), extends to larger drug-like molecules, tested up to 24 heacy atoms (167% extrapolation)
 - **Solvation support**: Predicts energies in various solvents (water, DMSO, methanol, etc.)
 
 ### Physics Components
 
-The model incorporates four fundamental physical principles:
+The model incorporates multiple fundamental physical principles organized into hierarchical correction layers:
 
-1. **Atomic baseline energies**: Size scaling using B3LYP reference energies
-2. **Hückel theory**: π-electron delocalization for conjugated systems
-3. **Multi-component ZPVE model**: Zero-point vibrational energy from bond frequencies
-4. **Born-like solvation corrections**: Solvent effects using dielectric continuum model
+#### 1. Atomic Baseline Energies
+- **B3LYP reference energies** for isolated atoms (H, C, N, O, F)
+- Provides the foundation for molecular energy prediction via atom counting
+
+#### 2. Electronic Structure Features
+
+**Hückel Theory (π-systems)**
+- π-electron delocalization energy for conjugated and aromatic systems
+- HOMO-LUMO gap estimation
+- Orbital energy spread for reactivity prediction
+
+**Extended Hückel Theory**
+- Valence orbital ionization potentials (VOIP) for all atoms
+- Slater orbital exponents for overlap estimation
+- Electronegativity and chemical hardness sums
+
+**Lone Pair Interactions**
+- Explicit counting of lone pairs by atom type and hybridization (N_sp², N_sp³, O_sp², O_sp³, F)
+- Lone pair orbital energy contributions
+- Adjacent lone pair repulsion (1,2 and 1,3 interactions)
+- Hyperconjugation potential (n→σ* donation to adjacent C-H bonds)
+- Anomeric effect detection (O-C-O and N-C-O patterns)
+
+#### 3. Heteroatom Environment Classification
+
+**Nitrogen Environments**
+- Pyrrole N (lone pair in π-system)
+- Pyridine N (lone pair perpendicular to ring)
+- Aniline N (conjugated with aromatic ring)
+- Amide N (conjugated with C=O)
+- Aliphatic amines (primary, secondary, tertiary)
+- Nitrile, nitro, and imine nitrogen
+
+**Oxygen Environments**
+- Carbonyl oxygen (ketone, aldehyde)
+- Carboxylic acid and ester oxygen
+- Amide oxygen
+- Alcohols and phenols
+- Aliphatic vs aromatic ethers (critical for methoxy groups)
+- Furan oxygen (aromatic)
+- Epoxide oxygen (ring strain)
+
+**Aromatic-Heteroatom Conjugation**
+- Electron-donating groups on aromatics (methoxy, hydroxy, amino)
+- Electron-withdrawing groups (nitro, cyano, carbonyl)
+- Resonance stabilization energy corrections
+- Polysubstituted aromatic interactions
+
+#### 4. Electron Correlation Proxies
+- Non-linear scaling with electron count (N^1.3)
+- Heteroatom-heteroatom correlation enhancement
+- Oxygen pair correlation (particularly strong for multiple O atoms)
+- Heteroatom fraction and variance terms
+
+#### 5. Multi-Component ZPVE Model
+- Linear baseline from atom count, hydrogen count, and bond count
+- Bond-specific vibrational frequencies (C-H, N-H, O-H stretches, etc.)
+- Gradient boosting residual model for fine corrections
+- Proper handling of high-frequency modes
+
+#### 6. Size-Dependent Corrections
+
+**Within Training Domain (≤9 heavy atoms)**
+- Polynomial size correction learned from residuals
+- Size-stratified heteroatom corrections (size bins × O count)
+
+**Extrapolation Beyond Training (>9 heavy atoms)**
+- Learned O-size trend extrapolation
+- Quadratic size correction for large molecules
+- Heteroatom-size interaction terms (O×size, N×size)
+- Framework stabilization from carbon skeleton
+- Damping factors for very large molecules (>20 heavy atoms)
+
+#### 7. Solvation Model (Born-like)
+- Kirkwood dielectric continuum for electrostatic solvation
+- Cavity formation energy from solvent-accessible surface area
+- Dispersion interactions based on molecular polarizability
+- Explicit hydrogen bond corrections for protic solvents
+- Supported solvents: water, methanol, ethanol, DMSO, acetonitrile, chloroform, hexane, and others
+
+#### 8. Functional Group Corrections
+- SMARTS-based detection of 18+ functional groups
+- Empirical bias corrections learned from training residuals
+- Covers ketones, aldehydes, carboxylic acids, esters, amides, nitriles, amines, alcohols, phenols, ethers, nitro groups, and heterocycles
 
 ## Files
 
@@ -77,22 +157,13 @@ python msep_predict.py compounds.csv --output results.csv
 python msep_predict.py compounds.csv --model /path/to/msep_model.pkl
 ```
 
-### Python/Jupyter
+### Python/Jupyter (Reccomended)
 
 ```python
-from msep_core import load_model, predict_molecule, predict_batch
+# Make sure to have `msep_core.py` , `msep_model.pkl` , `msep_predict.py`, and 'Input_compounds.csv' in working directory and all other requirements are installed. 
 
-# Load the model (do this once)
-load_model('msep_model.pkl')
+%run msep_predict.py 
 
-# Predict a single molecule
-result = predict_molecule('CCO', solvent='water', verbose=True)
-print(f"SCF Energy: {result['scf_solvated']:.6f} Ha")
-print(f"Uncertainty: ±{result['uncertainty']:.6f} Ha")
-
-# Predict multiple molecules
-smiles_list = ['C', 'CC', 'CCC', 'c1ccccc1']
-results = predict_batch(smiles_list, solvent='vacuum')
 ```
 
 ## Input File Format
@@ -102,18 +173,18 @@ Create a CSV file named `Input_compounds.csv` with the following columns:
 | Column | Required | Description |
 |--------|----------|-------------|
 | `smiles` | Yes | SMILES string of the molecule |
-| `compound` | No | Compound name/identifier |
+| `Compound` | No | Compound name/identifier |
 | `scf` | No | Experimental SCF energy (Hartree) for validation |
 | `solvent` | No | Solvent name (default: vacuum) |
 
-### Example Input
+### Example File Format
 
-```csv
-smiles,compound,scf,solvent
-CCO,ethanol,-154.123456,water
-c1ccccc1,benzene,-232.456789,vacuum
-CN(C)CCc1c[nH]c2ccccc12,DMT,,water
-```
+| Compound | smiles | solvent | scf |
+|--------|----------|-------------|-------------|
+| `Bufotenin` | `CN(C)CCc1c[nH]c2ccc(O)cc12` | `water` | (if available) |
+
+Multiple inputs can exist for the same compound if the user has different SCF energies at different conformers. 
+Simply continue to fill out the file, filling all applicable sections (even if repeated). 
 
 ### Supported Solvents
 
@@ -136,7 +207,7 @@ CN(C)CCc1c[nH]c2ccccc12,DMT,,water
 
 The model supports molecules containing: **H, C, N, O, F**
 
-Molecules with other elements will return `None` and be marked as failed.
+Molecules with other elements will return `None` and be marked as `failed`.
 
 ## For Developers
 
@@ -164,12 +235,14 @@ The model uses a stacked ensemble:
 3. **Gradient boosting** (HistGradientBoostingRegressor) - main model
 4. **Refinement GB** - captures residuals
 5. **Size/FG corrections** - empirical corrections
+6. **Heteroatom corrections** - accounts for lone pairs
+7. **Extrapolation corrections** - for systems larger than 9 heavy atoms 
 
 
 ## Limitations
 
 - **Training domain**: Best accuracy for molecules with ≤9 heavy atoms
-- **Elements**: Only H, C, N, O, F supported
+- **Elements**: Only H, C, N, O, F **(current physics features are heavily focused on N, O, weaker in F)**
 - **Conformers**: Does not predict conformational energy differences
 - **Level of theory**: Trained on B3LYP/6-31G(2df,p); other methods may differ
 - **Error by atom type**: Heteroatom-rich molecules tend to have higher prediction errors.
@@ -179,9 +252,9 @@ The model uses a stacked ensemble:
 If you use this code, please cite:
 
 ```
-@software{msep2024,
+@software{msep2026,
   title={MSEP: Machine Learning SCF Energy Prediction},
-  year={2025},
+  year={2026},
   url={https://github.com/jkimthe16th/MSEP}
 }
 ```
